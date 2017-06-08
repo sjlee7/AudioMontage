@@ -2,54 +2,20 @@
 Python2 & Python3 
 Version Compatible
 """
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from Utils import FLAGS, get_loss
+from Utils import generate_z, FLAGS, get_loss, norm_img, denorm_img
 from Decoder import Decoder
 from Encoder import Encoder
 from Loader import Image_Loader, save_image
+from PIL import Image
 
 import tensorflow as tf
 import numpy as np
 import os
-
-def next(loader):
-    return loader.next()[0].data.numpy()
-
-def to_nhwc(image, data_format):
-    if data_format == 'NCHW':
-        new_image = nchw_to_nhwc(image)
-    else:
-        new_image = image
-    return new_image
-
-def to_nchw_numpy(image):
-    if image.shape[3] in [1, 3]:
-        new_image = image.transpose([0, 3, 1, 2])
-    else:
-        new_image = image
-    return new_image
-
-def norm_img(image, data_format=None):
-    image = image/127.5 - 1.
-    if data_format:
-        image = to_nhwc(image, data_format)
-	return image
-
-def denorm_img(norm, data_format):
-	return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
-
-def slerp(val, low, high):
-    """Code from https://github.com/soumith/dcgan.torch/issues/14"""
-    omega = np.arccos(np.clip(np.dot(low/np.linalg.norm(low), high/np.linalg.norm(high)), -1, 1))
-    so = np.sin(omega)
-    if so == 0:
-        return (1.0-val) * low + val * high # L'Hopital's rule/LERP
-    return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
-
+import matplotlib.pyplot as plt
 
 def main(_):
 
@@ -135,10 +101,9 @@ def main(_):
 	"""
 	Prepare Image Loader
 	"""
-	# root = "./CelebA"
-	root = "../DCGAN-tensorflow-master/data/celebA"
+	root = "../../workspace/DCGAN-tensorflow-master/data/celebA/"
 	batch_size = FLAGS.bn
-	scale_size = [32,32]
+	scale_size = [FLAGS.scale_h,FLAGS.scale_w]
 	data_format = "NHWC"
 	loader = Image_Loader(root, batch_size, scale_size, data_format, file_type="jpg")
 
@@ -147,10 +112,11 @@ def main(_):
 	"""
 	Make Saving Directories
 	"""
-	os.makedirs("./Check_Point")
-	os.makedirs("./logs") # make logs directories to save summaries
-	os.makedirs("./Generated_Images")
-	os.makedirs("./Decoded_Generated_Images")
+	os.makedirs("./Check_Point", exist_ok=True)
+	os.makedirs("./logs", exist_ok=True) # make logs directories to save summaries
+	os.makedirs("./Real_Images", exist_ok=True)
+	os.makedirs("./Generated_Images", exist_ok=True)
+	os.makedirs("./Decoded_Generated_Images", exist_ok=True)
 
 
 
@@ -160,17 +126,14 @@ def main(_):
 
 
 	#____________________________________Model composition________________________________________
-	image = loader.queue # Get image batch tensor
-	image = norm_img(image, data_format)
 
-	k = tf.Variable(0, name = "k_t", trainable = False, dtype = tf.float32) #init value of k_t = 0
-
-	z_G = tf.random_uniform(
-                (FLAGS.bn, FLAGS.hidden_n), minval=-1.0, maxval=1.0)
-	# generate_z() # Sample embedding vector batch from uniform distribution
-	z_D = tf.random_uniform(
-                (FLAGS.bn, FLAGS.hidden_n), minval=-1.0, maxval=1.0)
-	# generate_z() # Sample embedding vector batch from uniform distribution
+	k = tf.Variable(0.0, name = "k_t", trainable = False, dtype = tf.float32) #init value of k_t = 0
+	
+	
+	batch = loader.queue # Get image batch tensor
+	image = norm_img(batch) # Normalize Imgae
+	z_G = generate_z() # Sample embedding vector batch from uniform distribution
+	z_D = generate_z() # Sample embedding vector batch from uniform distribution
 
 
 	E = Encoder("Encoder", Encoder_infos)
@@ -183,15 +146,20 @@ def main(_):
 
 
 	#Discriminator (Auto-Encoder)	
+
+	#image <--AutoEncoder--> reconstructed_image_real
 	embedding_vector_real = E.encode(image)
 	reconstructed_image_real = D.decode(embedding_vector_real)
 
-	embedding_vector_fake = E.encode(generated_image_for_disc, reuse=True)
+	#generated_image_for_disc <--AutoEncoder--> reconstructed_image_fake
+	embedding_vector_fake_for_disc = E.encode(generated_image_for_disc, reuse=True)
+	reconstructed_image_fake_for_disc = D.decode(embedding_vector_fake_for_disc, reuse=True)
+
+	#generated_image <--AutoEncoder--> reconstructed_image_fake
+	embedding_vector_fake = E.encode(generated_image, reuse=True)
 	reconstructed_image_fake = D.decode(embedding_vector_fake, reuse=True)
 
-	reconstructed_image_real2 = denorm_img(reconstructed_image_real, data_format)
-	reconstructed_image_fake2 = denorm_img(reconstructed_image_fake, data_format)
-	generated_image2 = denorm_img(generated_image, data_format)
+
 	#-----------------------------------------------------------------------------------------------
 
 
@@ -203,12 +171,18 @@ def main(_):
 	Define Loss
 	"""
 	real_image_loss = get_loss(image, reconstructed_image_real)
-	generator_loss_for_disc = get_loss(generated_image_for_disc, reconstructed_image_fake)
+	generator_loss_for_disc = get_loss(generated_image_for_disc, reconstructed_image_fake_for_disc)
 	discriminator_loss = real_image_loss - tf.multiply(k, generator_loss_for_disc)
+
 	generator_loss = get_loss(generated_image, reconstructed_image_fake)
 	global_measure = real_image_loss + tf.abs(tf.multiply(FLAGS.gamma,real_image_loss) - generator_loss)
 
 
+	"""
+	Summaries
+	"""
+	tf.summary.scalar('Real image loss', real_image_loss)
+	tf.summary.scalar('Generator loss for discriminator', generator_loss_for_disc)
 	tf.summary.scalar('Discriminator loss', discriminator_loss)
 	tf.summary.scalar('Generator loss', generator_loss)
 	tf.summary.scalar('Global_Measure', global_measure)
@@ -246,6 +220,9 @@ def main(_):
 	optimizer_D = tf.train.AdamOptimizer(FLAGS.lr,beta1=FLAGS.B1,beta2=FLAGS.B2).minimize(discriminator_loss,var_list=discriminator_parameters)
 	optimizer_G = tf.train.AdamOptimizer(FLAGS.lr,beta1=FLAGS.B1,beta2=FLAGS.B2).minimize(generator_loss,var_list=generator_parameters)
 
+	with tf.control_dependencies([optimizer_D, optimizer_G]):
+		k_update = tf.assign(k, tf.clip_by_value(k + FLAGS.lamb * (FLAGS.gamma*real_image_loss - generator_loss), 0, 1)) #update k_t
+
 	init = tf.global_variables_initializer()	
 
 
@@ -256,10 +233,13 @@ def main(_):
 						device_count = {'CPU': 1},\
 						)
 
+	# config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_portion
+
+
+
 	with tf.Session(config=config) as sess:
 
 		sess.run(init) # Initialize Variables
-
 
 		coord = tf.train.Coordinator() # Set Coordinator to Manage Queue Runners
 		threads = tf.train.start_queue_runners(sess, coord=coord) # Set Threads
@@ -279,26 +259,37 @@ def main(_):
 		# except AttributeError:
 		# 		print("No checkpoint")	
 
+		Real_Images = sess.run(denorm_img(image))
+		save_image(Real_Images, '{}.png'.format("./Real_Images/Real_Image"))
+
 #---------------------------------------------------------------------------
 		for t in range(FLAGS.iteration): # Mini-Batch Iteration Loop
 
 			if coord.should_stop():
 				break
+			
+			_, _, l_D, l_G, l_Global, k_t = sess.run([\
+													optimizer_D,\
+													optimizer_G,\
+													discriminator_loss,\
+													generator_loss,\
+													global_measure,\
+													k_update,\
+											   		])
 
-			_, _, l_D, l_G, l_Global = sess.run([optimizer_D,\
-												optimizer_G,\
-												discriminator_loss,\
-												generator_loss,\
-												global_measure],\
-												)
+			print(
+				 " Step : {}".format(t),
+				 " Global measure of convergence : {}".format(l_Global),
+				 " Generator Loss : {}".format(l_G),
+				 " Discriminator Loss : {}".format(l_D),
+				 " k_{} : {}".format(t,k_t) 
+				 )
 
-			print("Step : {}".format(t), "Global measure of convergence : ", l_Global, "  Generator Loss : ", l_G, "  Discriminator Loss : ", l_D) 
-
-
-			tf.assign(k, tf.clip_by_value(k + FLAGS.lamb * (FLAGS.gamma*real_image_loss - generator_loss), 0, 1)) #update k_t
 
 			
-	       #____________________________Save____________________________________
+
+			
+	       #________________________________Save____________________________________
 
 
 			if t % 200 == 0:
@@ -306,21 +297,21 @@ def main(_):
 				summary = sess.run(merged_summary)
 				writer.add_summary(summary, t)
 
-				Generated_images, Decoded_Generated_images = sess.run([generated_image2, reconstructed_image_fake2])
-				
-				save_image(Generated_images, '{}/{}.png'.format("./Generated_Images", t))
-				save_image(Decoded_Generated_images, '{}/{}.png'.format("./Decoded_Generated_Images", t))
 
+				Generated_Images, Decoded_Generated_Images = sess.run([denorm_img(generated_image), denorm_img(reconstructed_image_fake)])
+				save_image(Generated_Images, '{}/{}{}.png'.format("./Generated_Images", "Generated", t))
+				save_image(Decoded_Generated_Images, '{}/{}{}.png'.format("./Decoded_Generated_Images", "AutoEncoded", t))
+				print("-------------------Image saved-------------------")
 
 
 			if t % 500 == 0:
-
+				print("Save model {}th".format(t))
 				saver.save(sess, "./Check_Point/model.ckpt", global_step = t)
 
 
 	       #--------------------------------------------------------------------
-
-
+		
+		writer.close()
 		coord.request_stop()
 		coord.join(threads)
 
