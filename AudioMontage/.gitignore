@@ -1,0 +1,7 @@
+/CelebA
+/Check_Point
+/Decoded_Generated_Images
+/Generated_Images
+/logs
+*.pyc
+.DS_Store
