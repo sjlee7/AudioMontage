@@ -112,11 +112,11 @@ def main(_):
 	"""
 	Make Saving Directories
 	"""
-	os.makedirs("./Check_Point", exist_ok=True)
-	os.makedirs("./logs", exist_ok=True) # make logs directories to save summaries
-	os.makedirs("./Real_Images", exist_ok=True)
-	os.makedirs("./Generated_Images", exist_ok=True)
-	os.makedirs("./Decoded_Generated_Images", exist_ok=True)
+	os.makedirs("./Check_Point")
+	os.makedirs("./logs") # make logs directories to save summaries
+	os.makedirs("./Real_Images")
+	os.makedirs("./Generated_Images")
+	os.makedirs("./Decoded_Generated_Images")
 
 
 
@@ -292,7 +292,7 @@ def main(_):
 	       #________________________________Save____________________________________
 
 
-			if t % 200 == 0:
+			if t % 1000 == 0:
 
 				summary = sess.run(merged_summary)
 				writer.add_summary(summary, t)
@@ -301,10 +301,11 @@ def main(_):
 				Generated_Images, Decoded_Generated_Images = sess.run([denorm_img(generated_image), denorm_img(reconstructed_image_fake)])
 				save_image(Generated_Images, '{}/{}{}.png'.format("./Generated_Images", "Generated", t))
 				save_image(Decoded_Generated_Images, '{}/{}{}.png'.format("./Decoded_Generated_Images", "AutoEncoded", t))
+				# save_image(Rimage, '{}/{}{}.png'.format("./Real_Images", "Real_Images", t))
 				print("-------------------Image saved-------------------")
 
 
-			if t % 500 == 0:
+			if t % 1000 == 0:
 				print("Save model {}th".format(t))
 				saver.save(sess, "./Check_Point/model.ckpt", global_step = t)
 
