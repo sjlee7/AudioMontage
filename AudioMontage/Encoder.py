@@ -115,7 +115,7 @@ class Encoder(object):
 											reuse = self.reuse,\
 											)  
 
-			print("conv_layer_4 info : ", conv_layer_4)
+			print("conv_layer_5 info : ", conv_layer_5)
 
 			conv_layer_6 = tf.layers.conv2d(conv_layer_5, \
 											self.outdim_info[8], \
@@ -128,7 +128,43 @@ class Encoder(object):
 
 			print("conv_layer_6 info : ", conv_layer_6)
 
-			reshaped_vector = tf.reshape(conv_layer_6, [FLAGS.bn, 8*8*3*self.n])
+
+			subsample_layer_3 = tf.layers.conv2d(conv_layer_6, \
+											 	 self.outdim_info[9], \
+												 self.kernel_info[9], \
+												 self.stride_info[9], \
+												 padding = "same", \
+												 activation = tf.nn.elu,\
+												 reuse = self.reuse,\
+												 )  
+
+
+			print("subsample_layer_3 info : ", subsample_layer_3)
+
+			conv_layer_7 = tf.layers.conv2d(subsample_layer_3, \
+											self.outdim_info[10], \
+											self.kernel_info[10], \
+											self.stride_info[10], \
+											padding = "same", \
+											activation = tf.nn.elu,\
+											reuse = self.reuse,\
+											)  
+
+			print("conv_layer_7 info : ", conv_layer_7)
+
+			conv_layer_8 = tf.layers.conv2d(conv_layer_7, \
+											self.outdim_info[11], \
+											self.kernel_info[11], \
+											self.stride_info[11], \
+											padding = "same", \
+											activation = tf.nn.elu,\
+											reuse = self.reuse,\
+											)  
+
+			print("conv_layer_8 info : ", conv_layer_8)
+
+
+			reshaped_vector = tf.reshape(conv_layer_8, [FLAGS.bn, 8*8*4*self.n])
 
 			embedding_vector = tf.layers.dense(reshaped_vector, 8*8, reuse = self.reuse)
 
