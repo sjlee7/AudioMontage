@@ -15,6 +15,7 @@ class Decoder(object):
 
     def decode(self, h, reuse=False):
         self.reuse = reuse
+
         with tf.variable_scope(self.name, reuse=self.reuse):
 
             self.h = h
@@ -49,7 +50,13 @@ class Decoder(object):
             conv_layer_5 = tf.layers.conv2d(upsample_layer_2, self.outdim_info[4], self.kernel_info[4], self.stride_info[4], padding = "same", activation = tf.nn.elu, reuse = self.reuse)
             conv_layer_6 = tf.layers.conv2d(conv_layer_5, self.outdim_info[5], self.kernel_info[5], self.stride_info[5], padding = "same", activation = tf.nn.elu, reuse = self.reuse)
 
+            h_3 = tf.image.resize_nearest_neighbor(h_0, [64,64])
+            resized_conv_layer_6 = tf.image.resize_nearest_neighbor(conv_layer_6, [64,64])
+            upsample_layer_3 = tf.concat([h_3, resized_conv_layer_6], axis=3)
 
-            output_img = tf.layers.conv2d(conv_layer_6, self.outdim_info[6], self.kernel_info[6], self.stride_info[6], padding = "same", activation = tf.nn.elu, reuse = self.reuse)
+            conv_layer_7 = tf.layers.conv2d(upsample_layer_3, self.outdim_info[6], self.kernel_info[6], self.stride_info[7], padding= "same", activation= tf.nn.elu, reuse = self.reuse)
+            conv_layer_8 = tf.layers.conv2d(conv_layer_7, self.outdim_info[7], self.kernel_info[7], self.stride_info[7], padding= "same", activation= tf.nn.elu, reuse = self.reuse)
+
+            output_img = tf.layers.conv2d(conv_layer_8, self.outdim_info[8], self.kernel_info[8], self.stride_info[8], padding = "same", activation = tf.nn.elu, reuse = self.reuse)
 
             return output_img
