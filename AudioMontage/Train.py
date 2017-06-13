@@ -20,15 +20,21 @@ import matplotlib.pyplot as plt
 def main(_):
 
 	"""
+
+
 	Run main function
 	"""
 
 	#___________________________________________Layer info_____________________________________________________
 	n = FLAGS.hidden_n
 
+						
 	Encoder_infos = {
-						"outdim":[n,n,2*n,2*n,2*n,3*n,3*n, 3*n, 3*n],\
+						"outdim":[n,n,2*n,2*n,2*n,3*n,3*n, 3*n, 3*n, 4*n, 4*n, 4*n],\
 						"kernel":[ \
+									[3, 3], \
+									[3, 3], \
+									[3, 3], \
 									[3, 3], \
 									[3, 3], \
 									[3, 3], \
@@ -41,6 +47,9 @@ def main(_):
 								], \
 						"stride":[ \
 									[1, 1], \
+									[1, 1], \
+									[1, 1], \
+									[2, 2], \
 									[1, 1], \
 									[1, 1], \
 									[2, 2], \
@@ -54,8 +63,10 @@ def main(_):
 
 
 	Decoder_infos = {
-						"outdim":[n,n,n,n,n,n,3], \
+						"outdim":[n,n,n,n,n,n,n,n,3], \
 						"kernel":[ \
+									[3, 3], \
+									[3, 3], \
 									[3, 3], \
 									[3, 3], \
 									[3, 3], \
@@ -65,6 +76,8 @@ def main(_):
 									[3, 3], \
 								], \
 						"stride":[ \
+									[1, 1], \
+									[1, 1], \
 									[1, 1], \
 									[1, 1], \
 									[1, 1], \
@@ -76,8 +89,10 @@ def main(_):
 					} 
 
 	Generator_infos = {
-						"outdim":[n,n,n,n,n,n,3], \
+						"outdim":[n,n,n,n,n,n,n,n,3], \
 						"kernel":[ \
+									[3, 3], \
+									[3, 3], \
 									[3, 3], \
 									[3, 3], \
 									[3, 3], \
@@ -87,6 +102,8 @@ def main(_):
 									[3, 3], \
 								], \
 						"stride":[ \
+									[1, 1], \
+									[1, 1], \
 									[1, 1], \
 									[1, 1], \
 									[1, 1], \
@@ -112,11 +129,11 @@ def main(_):
 	"""
 	Make Saving Directories
 	"""
-	os.makedirs("./Check_Point")
-	os.makedirs("./logs") # make logs directories to save summaries
-	os.makedirs("./Real_Images")
-	os.makedirs("./Generated_Images")
-	os.makedirs("./Decoded_Generated_Images")
+	# os.makedirs("./Check_Point")
+	# os.makedirs("./logs") # make logs directories to save summaries
+	# os.makedirs("./Real_Images")
+	# os.makedirs("./Generated_Images")
+	# os.makedirs("./Decoded_Generated_Images")
 
 
 
@@ -277,13 +294,14 @@ def main(_):
 													k_update,\
 											   		])
 
-			print(
-				 " Step : {}".format(t),
-				 " Global measure of convergence : {}".format(l_Global),
-				 " Generator Loss : {}".format(l_G),
-				 " Discriminator Loss : {}".format(l_D),
-				 " k_{} : {}".format(t,k_t) 
-				 )
+			if t % 1000 == 0:
+				print(
+					 " Step : {}".format(t),
+					 " Global measure of convergence : {}".format(l_Global),
+					 " Generator Loss : {}".format(l_G),
+					 " Discriminator Loss : {}".format(l_D),
+					 " k_{} : {}".format(t,k_t) 
+					 )
 
 
 			
@@ -292,7 +310,7 @@ def main(_):
 	       #________________________________Save____________________________________
 
 
-			if t % 1000 == 0:
+			if t % 10000 == 0:
 
 				summary = sess.run(merged_summary)
 				writer.add_summary(summary, t)
@@ -305,9 +323,9 @@ def main(_):
 				print("-------------------Image saved-------------------")
 
 
-			if t % 1000 == 0:
+			if t % 10000 == 0:
 				print("Save model {}th".format(t))
-				saver.save(sess, "./Check_Point/model.ckpt", global_step = t)
+				saver.save(sess, "./Check_Point/BEGAN.model", global_step = t)
 
 
 	       #--------------------------------------------------------------------
